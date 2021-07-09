@@ -1,45 +1,37 @@
-from nltk.corpus import stopwords
-from string import punctuation
-from os import listdir
-from collections import Counter
-
-def load_doc(filename):
-    f = open(filename, 'r')
-    doc  = f.read()
-    f.close()
-    return doc
-
-def clean_doc(doc):
-    tokens = doc.split()
-    table = str.maketrans('', '', punctuation)
-    tokens = [w.translate(table) for w in tokens]
-    tokens = [w for w in tokens if w.isalpha()]
-    stop_words = set(stopwords.words('english'))
-    tokens = [w for w in tokens if not w in stop_words]
-    tokens = [w for w in tokens if len(w) > 1]
-    return tokens
-
-def add_doc_to_vocab(filename, vocab):
-    doc = load_doc(filename)
-    tokens = clean_doc(doc)
-    vocab.update(tokens)
-
-def process_docs(directory, vocab):
-    for filename in listdir(directory):
-        if filename.startswith('cv9'):
-            continue
-        path = directory + '/' + filename
-        add_doc_to_vocab(path, vocab)
+from preprocess import *
+from args import *
 
 if __name__ == '__main__':
     data_dir = 'dataset/movie_review/txt_sentoken/'
     pos = 'pos/'
     neg = 'neg/'
+    filename = 'vocab.txt'
+    train_size = 1800
+    test_size = 200
 
-    vocab = Counter()
-    
-    process_docs(data_dir+pos, vocab)
-    process_docs(data_dir+neg, vocab)
+    args = parse_arg()
+    mode = args.mode[-1]
 
-    print(len(vocab))
-    print(vocab.most_common(50))
+    if mode == 'save':
+        print('Make the vocabulary and save on the vocab.txt')
+        make_vocab_file(data_dir, pos, neg)
+    elif mode == 'load':
+        print('Load from vocab.txt')
+        
+        (X_train, y_train), (X_test, y_test) = make_dataset(filename, data_dir, pos, neg, train_size, test_size)
+
+        n_words = X_test.shape[1]
+
+        print(f'train dataset: X-{X_train.shape}, y-{y_train.shape}')
+        print(f'test dataset: X-{X_test.shape}, y-{y_test.shape}')
+
+        model = make_model(n_words)
+
+        print(model)
+
+        model.fit(X_train, y_train, epochs=50, verbose=2)
+
+        loss, acc = model.evaluate(X_test, y_test, verbose=0)
+        print(f'Test Accuracy: {acc*100}%')
+    else:
+        print(f'status: FAIL, content: mode selection')
